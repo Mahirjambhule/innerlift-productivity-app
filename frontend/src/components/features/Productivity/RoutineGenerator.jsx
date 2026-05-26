@@ -20,7 +20,7 @@ export default function RoutineGenerator({ token }) {
   useEffect(() => {
     const fetchLatestRoutine = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/routine', {
+        const res = await fetch('https://innerlift-8wtt.onrender.com/api/routine', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -49,7 +49,7 @@ export default function RoutineGenerator({ token }) {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:5000/api/routine', {
+      const res = await fetch('https://innerlift-8wtt.onrender.com/api/routine', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,7 +76,7 @@ export default function RoutineGenerator({ token }) {
   const handleStartOver = async () => {
     if (routine && routine._id) {
       try {
-        await fetch(`http://localhost:5000/api/routine/${routine._id}`, {
+        await fetch(`https://innerlift-8wtt.onrender.com/api/routine/${routine._id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`

@@ -63,7 +63,7 @@ export default function VoiceAssistant({ token }) {
   const processVoiceWithAI = async (text) => {
     setIsProcessing(true);
     try {
-      const res = await fetch('http://localhost:5000/api/voice', {
+      const res = await fetch('https://innerlift-8wtt.onrender.com/api/voice', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

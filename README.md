@@ -84,7 +84,7 @@ cd client
 npm run dev
 \`\`\`
 
-The application should now be running on `http://localhost:5173` (or your default Vite/CRA port), connected to your backend at `http://localhost:5000`.
+The application should now be running on `http://localhost:5173` (or your default Vite/CRA port), connected to your backend at `https://innerlift-8wtt.onrender.com`.
 
 ---
 

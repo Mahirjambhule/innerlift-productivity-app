@@ -36,7 +36,7 @@ export default function Dashboard({ user, token, setActiveTab }) {
         // 2. Wipe the Backend Database so it doesn't jump back to old XP!
         if (token) {
           try {
-            await fetch('http://localhost:5000/api/gamification/reset', {
+            await fetch('https://innerlift-8wtt.onrender.com/api/gamification/reset', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

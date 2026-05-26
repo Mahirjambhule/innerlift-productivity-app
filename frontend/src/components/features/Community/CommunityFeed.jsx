@@ -17,7 +17,7 @@ export default function CommunityFeed({ token, currentUser }) {
 
   const fetchPosts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/posts', {
+      const res = await fetch('https://innerlift-8wtt.onrender.com/api/posts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -47,7 +47,7 @@ export default function CommunityFeed({ token, currentUser }) {
     setPublishError('');
 
     try {
-      const res = await fetch('http://localhost:5000/api/posts', {
+      const res = await fetch('https://innerlift-8wtt.onrender.com/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -73,7 +73,7 @@ export default function CommunityFeed({ token, currentUser }) {
 
   const handleLike = async (postId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/posts/${postId}/like`, {
+      const res = await fetch(`https://innerlift-8wtt.onrender.com/api/posts/${postId}/like`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -94,7 +94,7 @@ export default function CommunityFeed({ token, currentUser }) {
     if (!postId) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/posts/${postId}`, {
+      const res = await fetch(`https://innerlift-8wtt.onrender.com/api/posts/${postId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

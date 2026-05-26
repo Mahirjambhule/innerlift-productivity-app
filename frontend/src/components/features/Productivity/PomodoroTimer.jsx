@@ -41,7 +41,7 @@ export default function PomodoroTimer({ token, onActionComplete }) {
 
   const handlePomodoroComplete = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/gamification/update-xp', {
+      const res = await fetch('https://innerlift-8wtt.onrender.com/api/gamification/update-xp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

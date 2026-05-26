@@ -10,7 +10,7 @@ export default function AIJournal({ token }) {
   useEffect(() => {
     const fetchJournalHistory = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/journal', {
+        const res = await fetch('https://innerlift-8wtt.onrender.com/api/journal', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -39,7 +39,7 @@ export default function AIJournal({ token }) {
     setIsAnalyzing(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/journal', {
+      const res = await fetch('https://innerlift-8wtt.onrender.com/api/journal', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export default function AIJournal({ token }) {
         setJournalHistory(prevHistory => [newEntry, ...prevHistory]);
         setJournalText('');
 
-        const xpRes = await fetch('http://localhost:5000/api/gamification/update-xp', {
+        const xpRes = await fetch('https://innerlift-8wtt.onrender.com/api/gamification/update-xp', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ export default function AIJournal({ token }) {
     if (!id) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/journal/${id}`, {
+      const res = await fetch(`https://innerlift-8wtt.onrender.com/api/journal/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });

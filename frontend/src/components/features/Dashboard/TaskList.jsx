@@ -5,7 +5,7 @@ export default function TaskList({ token, user }) {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
 
-  const API_URL = 'http://localhost:5000/api/tasks';
+  const API_URL = 'https://innerlift-8wtt.onrender.com/api/tasks';
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -77,7 +77,7 @@ export default function TaskList({ token, user }) {
       }
 
       if (!currentStatus) {
-        const xpRes = await fetch('http://localhost:5000/api/gamification/update-xp', {
+        const xpRes = await fetch('https://innerlift-8wtt.onrender.com/api/gamification/update-xp', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
