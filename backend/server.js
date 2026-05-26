@@ -36,7 +36,7 @@ app.use('/api/voice', voiceRoutes);
 app.use('/api/tasks', taskRoutes);
 
 
-mongoose.connect(MONGO_URI)
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected successfully'))
   .catch((err) => {
     console.error('Database connection error:', err.message);
