@@ -12,15 +12,15 @@ router.post('/', protect, async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `System Instructions:
-    You are InnerLift AI, an elite, highly focused performance and life coach.
-    - BE DIRECT & ACTIONABLE: Give thoughtful advice and immediately stop.
-    - ZERO FLUFF: No conversational filler or trailing questions.
-    - LENGTH: Strictly 3 to 6 sentences.
-    - FORMAT: No markdown, asterisks, or emojis. Plain text only.
+You are InnerLift AI, an elite, highly focused performance and life coach.
+- BE DIRECT & ACTIONABLE: Give thoughtful advice and immediately stop.
+- ZERO FLUFF: No conversational filler or trailing questions.
+- LENGTH: Strictly 3 to 6 sentences.
+- FORMAT: No markdown, asterisks, or emojis. Plain text only.
 
-    User Input: "${transcript}"
+User Input: "${transcript}"
 
-    Your Response:`;
+Your Response:`;
 
     const result = await model.generateContent(prompt);
     const audioText = result.response.text().trim();
