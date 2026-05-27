@@ -12,6 +12,15 @@ export default function VoiceAssistant({ token }) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
+  // Helper to find the sweetest Google female voice
+  const getSweetVoice = (voices) => {
+    return voices.find(v => v.name === 'Google UK English Female') ||
+           voices.find(v => v.name === 'Google US English') ||
+           voices.find(v => v.name.includes('Google') && v.name.includes('Female')) ||
+           voices.find(v => v.name.includes('Google')) ||
+           voices.find(v => v.lang.startsWith('en-'));
+  };
+
   useEffect(() => {
     if (window.speechSynthesis) {
       window.speechSynthesis.getVoices();
@@ -49,14 +58,57 @@ export default function VoiceAssistant({ token }) {
     recognition.onend = () => setIsListening(false);
   }, []);
 
+  const initiateGreeting = () => {
+    if (!window.speechSynthesis) {
+      if (recognition) recognition.start();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    
+    const greetingText = "Hi Mahir, I am here. How are you feeling today?";
+    setAiResponse(greetingText); // Show it in the UI so it looks alive
+
+    const utterance = new SpeechSynthesisUtterance(greetingText);
+    const voices = window.speechSynthesis.getVoices();
+    
+    utterance.voice = getSweetVoice(voices);
+    utterance.rate = 0.95; // Slightly slower for a calmer tone
+    utterance.pitch = 1.1; // Slightly higher for a sweeter female voice
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Turn on the mic the exact moment she finishes speaking
+      if (recognition) {
+        try {
+          recognition.start();
+        } catch(e) {
+          console.error("Mic start error:", e);
+        }
+      }
+    };
+    utterance.onerror = (e) => {
+      console.error("TTS Engine Error:", e);
+      setIsSpeaking(false);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   const toggleListening = () => {
-    if (isListening) {
-      recognition.stop();
+    if (isListening || isSpeaking) {
+      if (recognition) recognition.stop();
+      window.speechSynthesis.cancel();
+      setIsListening(false);
+      setIsSpeaking(false);
     } else {
       setTranscript('');
       setAiResponse('');
-      window.speechSynthesis.cancel();
-      recognition.start();
+      setMicError('');
+      
+      // Start the dynamic AI greeting instead of just silently listening
+      initiateGreeting();
     }
   };
 
@@ -96,16 +148,10 @@ export default function VoiceAssistant({ token }) {
       const utterance = new SpeechSynthesisUtterance(text);
       const voices = window.speechSynthesis.getVoices();
 
-      if (voices.length > 0) {
-        const preferredVoice = voices.find(v => v.name.includes('Google')) ||
-          voices.find(v => v.lang.startsWith('en-'));
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-        }
-      }
-
-      utterance.rate = 1;
-      utterance.pitch = 1;
+      utterance.voice = getSweetVoice(voices);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.1;
+      
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = (e) => {
@@ -117,6 +163,12 @@ export default function VoiceAssistant({ token }) {
     }, 50);
   };
 
+  // Dynamic Subtitle Logic
+  let statusText = "Speak your mind. The AI will listen and advise.";
+  if (isSpeaking) statusText = "InnerLift is speaking...";
+  else if (isListening) statusText = "Listening to you... (Speak now)";
+  else if (isProcessing) statusText = "Thinking deeply...";
+
   if (!recognition) {
     return <div className="p-8 border text-sm text-red-500">Your browser does not support the Web Speech API. Please use Chrome.</div>;
   }
@@ -124,6 +176,7 @@ export default function VoiceAssistant({ token }) {
   return (
     <div className="border p-6 md:p-12 animate-fade-in relative overflow-hidden" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-secondary)' }}>
 
+      {/* Background SVG Grid Pattern */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 200 200" preserveAspectRatio="none" fill="none" stroke="currentColor" strokeWidth="0.5">
         <path d="M -50 50 Q 100 150 250 50" />
         <path d="M -50 80 Q 100 180 250 80" />
@@ -134,25 +187,28 @@ export default function VoiceAssistant({ token }) {
 
       <div className="text-center mb-12 relative z-10">
         <h2 className="text-2xl font-serif font-medium mb-2">Voice Mentor</h2>
-        <p className="opacity-60 text-sm">Speak your mind. The AI will listen and advise.</p>
+        <p className={`text-sm transition-opacity duration-300 ${isSpeaking || isListening || isProcessing ? 'opacity-100 font-medium' : 'opacity-60'}`}>
+          {statusText}
+        </p>
       </div>
 
       <div className="flex justify-center mb-12 relative w-24 h-24 mx-auto">
-        {isListening && (
+        {/* Pulsing ring when active */}
+        {(isListening || isSpeaking) && (
           <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ backgroundColor: 'var(--text-primary)' }}></div>
         )}
 
         <button
           onClick={toggleListening}
-          disabled={isProcessing || isSpeaking}
+          disabled={isProcessing}
           className="absolute inset-0 z-10 rounded-full flex items-center justify-center transition border shadow-sm disabled:opacity-50 cursor-pointer"
           style={{
-            backgroundColor: isListening ? 'var(--text-primary)' : 'var(--bg-primary)',
-            color: isListening ? 'var(--bg-primary)' : 'var(--text-primary)',
+            backgroundColor: (isListening || isSpeaking) ? 'var(--text-primary)' : 'var(--bg-primary)',
+            color: (isListening || isSpeaking) ? 'var(--bg-primary)' : 'var(--text-primary)',
             borderColor: 'var(--text-primary)'
           }}
         >
-          {isListening ? (
+          {(isListening || isSpeaking) ? (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
           ) : (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
