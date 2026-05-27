@@ -10,9 +10,9 @@ export default function VoiceAssistant({ token }) {
   const [micError, setMicError] = useState('');
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+  // Initialize once
+  const [recognition] = useState(() => SpeechRecognition ? new SpeechRecognition() : null);
 
-  // Helper to find the sweetest Google female voice
   const getSweetVoice = (voices) => {
     return voices.find(v => v.name === 'Google UK English Female') ||
            voices.find(v => v.name === 'Google US English') ||
@@ -31,7 +31,7 @@ export default function VoiceAssistant({ token }) {
     if (!recognition) return;
 
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true; // MAGIC FIX: Turns on live typing!
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
@@ -39,24 +39,40 @@ export default function VoiceAssistant({ token }) {
       setIsListening(true);
     };
 
-    recognition.onresult = async (event) => {
-      const currentTranscript = event.results[0][0].transcript;
-      setTranscript(currentTranscript);
-      await processVoiceWithAI(currentTranscript);
+    recognition.onresult = (event) => {
+      let interimText = '';
+      let finalText = '';
+
+      // Loop through the results to separate live typing from the final sentence
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalText += event.results[i][0].transcript;
+        } else {
+          interimText += event.results[i][0].transcript;
+        }
+      }
+
+      // Show whatever is currently being said on the screen live
+      setTranscript(finalText || interimText);
+
+      // ONLY send to Gemini when the user is completely done talking
+      if (finalText) {
+        processVoiceWithAI(finalText);
+      }
     };
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech') {
-        setMicError('No audio detected. Please check your microphone or speak louder.');
+        setMicError('No audio detected. Please speak louder.');
       } else if (event.error === 'not-allowed') {
-        setMicError('Microphone access blocked. Please allow permissions in Chrome.');
+        setMicError('Microphone access blocked! Look for the camera icon in your Chrome URL bar and allow it.');
       }
       setIsListening(false);
     };
 
     recognition.onend = () => setIsListening(false);
-  }, []);
+  }, [recognition]); // Ensure recognition is stable
 
   const initiateGreeting = () => {
     if (!window.speechSynthesis) {
@@ -67,14 +83,14 @@ export default function VoiceAssistant({ token }) {
     window.speechSynthesis.cancel();
     
     const greetingText = "Hi Mahir, I am here. How are you feeling today?";
-    setAiResponse(greetingText); // Show it in the UI so it looks alive
+    setAiResponse(greetingText); 
 
     const utterance = new SpeechSynthesisUtterance(greetingText);
     const voices = window.speechSynthesis.getVoices();
     
     utterance.voice = getSweetVoice(voices);
-    utterance.rate = 0.95; // Slightly slower for a calmer tone
-    utterance.pitch = 1.1; // Slightly higher for a sweeter female voice
+    utterance.rate = 0.95; 
+    utterance.pitch = 1.1; 
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
@@ -106,8 +122,6 @@ export default function VoiceAssistant({ token }) {
       setTranscript('');
       setAiResponse('');
       setMicError('');
-      
-      // Start the dynamic AI greeting instead of just silently listening
       initiateGreeting();
     }
   };
@@ -163,7 +177,6 @@ export default function VoiceAssistant({ token }) {
     }, 50);
   };
 
-  // Dynamic Subtitle Logic
   let statusText = "Speak your mind. The AI will listen and advise.";
   if (isSpeaking) statusText = "InnerLift is speaking...";
   else if (isListening) statusText = "Listening to you... (Speak now)";
@@ -176,7 +189,6 @@ export default function VoiceAssistant({ token }) {
   return (
     <div className="border p-6 md:p-12 animate-fade-in relative overflow-hidden" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-secondary)' }}>
 
-      {/* Background SVG Grid Pattern */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 200 200" preserveAspectRatio="none" fill="none" stroke="currentColor" strokeWidth="0.5">
         <path d="M -50 50 Q 100 150 250 50" />
         <path d="M -50 80 Q 100 180 250 80" />
@@ -193,7 +205,6 @@ export default function VoiceAssistant({ token }) {
       </div>
 
       <div className="flex justify-center mb-12 relative w-24 h-24 mx-auto">
-        {/* Pulsing ring when active */}
         {(isListening || isSpeaking) && (
           <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ backgroundColor: 'var(--text-primary)' }}></div>
         )}
