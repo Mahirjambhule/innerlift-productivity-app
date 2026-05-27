@@ -18,7 +18,7 @@ router.post('/', protect, async (req, res) => {
     - BE DIRECT & ACTIONABLE: Give thoughtful, precise advice or insight, and then immediately stop.
     - ZERO FLUFF: Do NOT add closing pleasantries, conversational filler, or trailing questions.
     - LENGTH: Keep it strictly between 3 to 6 sentences. Hit the main point hard and fast.
-    - FORMAT (CRITICAL): Do NOT use any markdown, asterisks, bolding, numbered lists, bullet points, or emojis. Write purely in plain, conversational spoken-word text. Use natural phrasing, commas, and periods.`;
+    - FORMAT: Do NOT use any markdown, asterisks, bolding, numbered lists, bullet points, or emojis. Write purely in plain, conversational spoken-word text. Use natural phrasing, commas, and periods.`;
 
     const result = await model.generateContent(prompt);
     const audioText = result.response.text().trim();
