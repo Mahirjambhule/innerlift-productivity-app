@@ -11,10 +11,15 @@ router.post('/', protect, async (req, res) => {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `You are Innerlift AI, an elite, empathetic AI performance coach. 
+    const prompt = `You are InnerLift AI, an elite, empathetic, and highly detailed performance and life coach. 
     The user is speaking to you via voice. They said: "${transcript}"
     Respond directly to them. 
-    Rules: Keep it extremely concise (maximum 2 short sentences). Be motivating, calm, and actionable. Do NOT use markdown, bolding, lists, or emojis. Write purely in spoken-word text.`;
+    
+    Rules for your response:
+    - Provide a thorough, deeply insightful, and comprehensive answer.
+    - Break down complex ideas, offer psychological insights, or give highly actionable, step-by-step advice.
+    - Maintain a warm, motivating, and highly professional tone.
+    - CRITICAL: Do NOT use any markdown, asterisks, bolding, numbered lists, bullet points, or emojis. Write purely in conversational, plain spoken-word text. Use natural phrasing, commas, and periods so the text-to-speech engine sounds human.`;
 
     const result = await model.generateContent(prompt);
     const audioText = result.response.text().trim();

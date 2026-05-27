@@ -9,7 +9,6 @@ export default function VoiceAssistant({ token }) {
   const [aiResponse, setAiResponse] = useState('');
   const [micError, setMicError] = useState('');
 
-  // Use a ref to track if the user wants the conversation to continue
   const sessionActive = useRef(false);
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -62,7 +61,6 @@ export default function VoiceAssistant({ token }) {
 
     recognition.onerror = (event) => {
       if (event.error === 'no-speech') {
-        // If it hears nothing, just silently restart if session is still active
         if (sessionActive.current) {
           try { recognition.start(); } catch(e) {}
         }
@@ -97,7 +95,6 @@ export default function VoiceAssistant({ token }) {
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
-      // LOOP MAGIC: Auto-start the mic when she finishes the greeting
       if (sessionActive.current && recognition) {
         try { recognition.start(); } catch(e) { console.error(e); }
       }
@@ -107,7 +104,6 @@ export default function VoiceAssistant({ token }) {
   };
 
   const toggleListening = () => {
-    // HARD STOP: If the user clicks the button while active, kill the session
     if (sessionActive.current) {
       sessionActive.current = false;
       if (recognition) recognition.stop();
@@ -116,7 +112,6 @@ export default function VoiceAssistant({ token }) {
       setIsSpeaking(false);
       setIsProcessing(false);
     } else {
-      // HARD START: Begin the session
       sessionActive.current = true;
       setTranscript('');
       setAiResponse('');
@@ -165,7 +160,6 @@ export default function VoiceAssistant({ token }) {
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
         setIsSpeaking(false);
-        // LOOP MAGIC: Auto-start the mic when she finishes her AI response
         if (sessionActive.current && recognition) {
           try { recognition.start(); } catch(e) { console.error(e); }
         }
@@ -175,7 +169,6 @@ export default function VoiceAssistant({ token }) {
     }, 50);
   };
 
-  // Dynamic Status
   let statusText = "Speak your mind. The AI will listen and advise.";
   if (!sessionActive.current) statusText = "Click the mic to start a session.";
   else if (isSpeaking) statusText = "InnerLift is speaking...";
@@ -277,7 +270,6 @@ export default function VoiceAssistant({ token }) {
   const [aiResponse, setAiResponse] = useState('');
   const [micError, setMicError] = useState('');
 
-  // Use a ref to track if the user wants the conversation to continue
   const sessionActive = useRef(false);
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -330,7 +322,6 @@ export default function VoiceAssistant({ token }) {
 
     recognition.onerror = (event) => {
       if (event.error === 'no-speech') {
-        // If it hears nothing, just silently restart if session is still active
         if (sessionActive.current) {
           try { recognition.start(); } catch(e) {}
         }
@@ -365,7 +356,6 @@ export default function VoiceAssistant({ token }) {
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
-      // LOOP MAGIC: Auto-start the mic when she finishes the greeting
       if (sessionActive.current && recognition) {
         try { recognition.start(); } catch(e) { console.error(e); }
       }
@@ -375,7 +365,6 @@ export default function VoiceAssistant({ token }) {
   };
 
   const toggleListening = () => {
-    // HARD STOP: If the user clicks the button while active, kill the session
     if (sessionActive.current) {
       sessionActive.current = false;
       if (recognition) recognition.stop();
@@ -384,7 +373,6 @@ export default function VoiceAssistant({ token }) {
       setIsSpeaking(false);
       setIsProcessing(false);
     } else {
-      // HARD START: Begin the session
       sessionActive.current = true;
       setTranscript('');
       setAiResponse('');
@@ -433,7 +421,6 @@ export default function VoiceAssistant({ token }) {
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
         setIsSpeaking(false);
-        // LOOP MAGIC: Auto-start the mic when she finishes her AI response
         if (sessionActive.current && recognition) {
           try { recognition.start(); } catch(e) { console.error(e); }
         }
@@ -443,7 +430,6 @@ export default function VoiceAssistant({ token }) {
     }, 50);
   };
 
-  // Dynamic Status
   let statusText = "Speak your mind. The AI will listen and advise.";
   if (!sessionActive.current) statusText = "Click the mic to start a session.";
   else if (isSpeaking) statusText = "InnerLift is speaking...";
