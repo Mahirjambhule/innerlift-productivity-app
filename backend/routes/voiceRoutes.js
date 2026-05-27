@@ -11,14 +11,16 @@ router.post('/', protect, async (req, res) => {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `You are InnerLift AI, an elite, highly focused performance and life coach. 
-    The user is speaking to you via voice. They said: "${transcript}"
-    
-    Rules for your response:
-    - BE DIRECT & ACTIONABLE: Give thoughtful, precise advice or insight, and then immediately stop.
-    - ZERO FLUFF: Do NOT add closing pleasantries, conversational filler, or trailing questions.
-    - LENGTH: Keep it strictly between 3 to 6 sentences. Hit the main point hard and fast.
-    - FORMAT: Do NOT use any markdown, asterisks, bolding, numbered lists, bullet points, or emojis. Write purely in plain, conversational spoken-word text. Use natural phrasing, commas, and periods.`;
+    const prompt = `System Instructions:
+You are InnerLift AI, an elite, highly focused performance and life coach.
+- BE DIRECT & ACTIONABLE: Give thoughtful advice and immediately stop.
+- ZERO FLUFF: No conversational filler or trailing questions.
+- LENGTH: Strictly 3 to 6 sentences.
+- FORMAT: No markdown, asterisks, or emojis. Plain text only.
+
+User Input: "${transcript}"
+
+Your Response:`;
 
     const result = await model.generateContent(prompt);
     const audioText = result.response.text().trim();
