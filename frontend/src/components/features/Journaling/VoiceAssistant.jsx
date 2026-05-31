@@ -51,24 +51,26 @@ export default function VoiceAssistant({ token, user }) {
     };
 
     recognition.onresult = (event) => {
-      let currentSpeech = '';
-
-      // This simple loop flawlessly captures exactly what you say without stuttering or duplicating.
-      for (let i = 0; i < event.results.length; i++) {
-        currentSpeech += event.results[i][0].transcript;
-      }
+      // Maps the exact array from Chrome without manually stitching it together
+      const currentSpeech = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join('');
 
       setTranscript(currentSpeech);
 
-      // Silence Detection
       if (speechTimeout.current) clearTimeout(speechTimeout.current);
 
       speechTimeout.current = setTimeout(() => {
         if (currentSpeech.trim() && !isProcessingRef.current) {
-          try { recognition.stop(); } catch(e) {}
+          updateProcessing(true); // Lock it immediately so it can't double-fire
+          
+          try { 
+            recognition.abort(); // HARD KILL: Prevents Chrome from sending trailing duplicate words
+          } catch(e) {}
+          
           processVoiceWithAI(currentSpeech.trim());
         }
-      }, 1500); // Waits 1.5 seconds after you stop speaking to reply
+      }, 1500); 
     };
 
     recognition.onerror = (event) => {
@@ -130,7 +132,7 @@ export default function VoiceAssistant({ token, user }) {
       updateSpeaking(false);
       if (speechTimeout.current) clearTimeout(speechTimeout.current);
       if (recognition) {
-        try { recognition.stop(); } catch(e) {}
+        try { recognition.abort(); } catch(e) {}
       }
       window.speechSynthesis.cancel();
       setIsListening(false);
@@ -144,8 +146,6 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   const processVoiceWithAI = async (text) => {
-    updateProcessing(true); 
-    
     try {
       const res = await fetch('https://innerlift-8wtt.onrender.com/api/voice', {
         method: 'POST',
@@ -192,6 +192,8 @@ export default function VoiceAssistant({ token, user }) {
       utterance.onstart = () => updateSpeaking(true);
       utterance.onend = () => {
         updateSpeaking(false);
+        // Clear your text ONLY when the AI finishes speaking, so you can clearly see what she replied to!
+        setTranscript(''); 
         if (sessionActive.current && recognition) {
           try { recognition.start(); } catch(e) {}
         }
