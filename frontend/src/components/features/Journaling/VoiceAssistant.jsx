@@ -12,6 +12,7 @@ export default function VoiceAssistant({ token, user }) {
   const sessionActive = useRef(false);
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
+  const speechTimeout = useRef(null);
 
   const updateProcessing = (val) => {
     isProcessingRef.current = val;
@@ -50,23 +51,25 @@ export default function VoiceAssistant({ token, user }) {
     };
 
     recognition.onresult = (event) => {
-      let interimText = '';
-      let finalText = '';
+      let fullTranscript = '';
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalText += event.results[i][0].transcript;
-        } else {
-          interimText += event.results[i][0].transcript;
+      // Accumulate the entire sentence smoothly
+      for (let i = 0; i < event.results.length; i++) {
+        fullTranscript += event.results[i][0].transcript;
+      }
+
+      setTranscript(fullTranscript);
+
+      // SILENCE DETECTION: Clear the timer every time a new word is heard
+      if (speechTimeout.current) clearTimeout(speechTimeout.current);
+
+      // Wait 1.5 seconds after you stop speaking to fire the AI
+      speechTimeout.current = setTimeout(() => {
+        if (fullTranscript.trim() && !isProcessingRef.current) {
+          try { recognition.stop(); } catch(e) {}
+          processVoiceWithAI(fullTranscript.trim());
         }
-      }
-
-      setTranscript(finalText || interimText);
-
-      if (finalText.trim()) {
-        try { recognition.stop(); } catch(e) {}
-        processVoiceWithAI(finalText);
-      }
+      }, 1500);
     };
 
     recognition.onerror = (event) => {
@@ -83,6 +86,10 @@ export default function VoiceAssistant({ token, user }) {
         try { recognition.start(); } catch(e) {}
       }
     };
+
+    return () => {
+      if (speechTimeout.current) clearTimeout(speechTimeout.current);
+    };
   }, [recognition]); 
 
   const initiateGreeting = () => {
@@ -95,6 +102,7 @@ export default function VoiceAssistant({ token, user }) {
     
     const firstName = user?.name?.split(' ')[0] || user?.username || 'there';
     const greetingText = `Hi ${firstName}, I am here. How are you feeling today?`;
+    
     setAiResponse(greetingText); 
 
     const utterance = new SpeechSynthesisUtterance(greetingText);
@@ -120,6 +128,7 @@ export default function VoiceAssistant({ token, user }) {
       sessionActive.current = false;
       updateProcessing(false);
       updateSpeaking(false);
+      if (speechTimeout.current) clearTimeout(speechTimeout.current);
       if (recognition) {
         try { recognition.stop(); } catch(e) {}
       }
@@ -163,6 +172,7 @@ export default function VoiceAssistant({ token, user }) {
         speakResponse(errorMsg);
       }
     } finally {
+      setTranscript('');
       updateProcessing(false); 
     }
   };
