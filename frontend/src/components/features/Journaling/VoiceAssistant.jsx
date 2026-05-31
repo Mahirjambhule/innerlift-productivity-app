@@ -12,7 +12,9 @@ export default function VoiceAssistant({ token, user }) {
   const sessionActive = useRef(false);
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
-  const speechTimeout = useRef(null);
+  
+  const speechTimeout = useRef(null); 
+  const finalTranscriptRef = useRef('');
 
   const updateProcessing = (val) => {
     isProcessingRef.current = val;
@@ -48,26 +50,32 @@ export default function VoiceAssistant({ token, user }) {
     recognition.onstart = () => {
       setMicError('');
       setIsListening(true);
+      finalTranscriptRef.current = ''; // Clear memory when mic opens for a fresh sentence
     };
 
     recognition.onresult = (event) => {
-      let fullTranscript = '';
+      let interimTranscript = '';
 
-      // Accumulate the entire sentence smoothly
-      for (let i = 0; i < event.results.length; i++) {
-        fullTranscript += event.results[i][0].transcript;
+      // Only look at new results, separating drafts (interim) from finalized words
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscriptRef.current += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
       }
 
-      setTranscript(fullTranscript);
+      // Combine locked-in words with the current draft word
+      const currentText = finalTranscriptRef.current + interimTranscript;
+      setTranscript(currentText);
 
-      // SILENCE DETECTION: Clear the timer every time a new word is heard
+      // Silence Detection
       if (speechTimeout.current) clearTimeout(speechTimeout.current);
 
-      // Wait 1.5 seconds after you stop speaking to fire the AI
       speechTimeout.current = setTimeout(() => {
-        if (fullTranscript.trim() && !isProcessingRef.current) {
+        if (currentText.trim() && !isProcessingRef.current) {
           try { recognition.stop(); } catch(e) {}
-          processVoiceWithAI(fullTranscript.trim());
+          processVoiceWithAI(currentText.trim());
         }
       }, 1500);
     };
@@ -173,6 +181,7 @@ export default function VoiceAssistant({ token, user }) {
       }
     } finally {
       setTranscript('');
+      finalTranscriptRef.current = ''; 
       updateProcessing(false); 
     }
   };
