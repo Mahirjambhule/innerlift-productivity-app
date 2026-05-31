@@ -12,9 +12,7 @@ export default function VoiceAssistant({ token, user }) {
   const sessionActive = useRef(false);
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
-  
-  const speechTimeout = useRef(null); 
-  const finalTranscriptRef = useRef('');
+  const speechTimeout = useRef(null);
 
   const updateProcessing = (val) => {
     isProcessingRef.current = val;
@@ -50,34 +48,27 @@ export default function VoiceAssistant({ token, user }) {
     recognition.onstart = () => {
       setMicError('');
       setIsListening(true);
-      finalTranscriptRef.current = ''; // Clear memory when mic opens for a fresh sentence
     };
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
+      let currentSpeech = '';
 
-      // Only look at new results, separating drafts (interim) from finalized words
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscriptRef.current += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
-        }
+      // This simple loop flawlessly captures exactly what you say without stuttering or duplicating.
+      for (let i = 0; i < event.results.length; i++) {
+        currentSpeech += event.results[i][0].transcript;
       }
 
-      // Combine locked-in words with the current draft word
-      const currentText = finalTranscriptRef.current + interimTranscript;
-      setTranscript(currentText);
+      setTranscript(currentSpeech);
 
       // Silence Detection
       if (speechTimeout.current) clearTimeout(speechTimeout.current);
 
       speechTimeout.current = setTimeout(() => {
-        if (currentText.trim() && !isProcessingRef.current) {
+        if (currentSpeech.trim() && !isProcessingRef.current) {
           try { recognition.stop(); } catch(e) {}
-          processVoiceWithAI(currentText.trim());
+          processVoiceWithAI(currentSpeech.trim());
         }
-      }, 1500);
+      }, 1500); // Waits 1.5 seconds after you stop speaking to reply
     };
 
     recognition.onerror = (event) => {
@@ -112,6 +103,7 @@ export default function VoiceAssistant({ token, user }) {
     const greetingText = `Hi ${firstName}, I am here. How are you feeling today?`;
     
     setAiResponse(greetingText); 
+    setTranscript(''); 
 
     const utterance = new SpeechSynthesisUtterance(greetingText);
     const voices = window.speechSynthesis.getVoices();
@@ -180,8 +172,6 @@ export default function VoiceAssistant({ token, user }) {
         speakResponse(errorMsg);
       }
     } finally {
-      setTranscript('');
-      finalTranscriptRef.current = ''; 
       updateProcessing(false); 
     }
   };
