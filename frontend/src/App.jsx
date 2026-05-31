@@ -172,7 +172,7 @@ export default function App() {
           </div>
 
           <div className={activeTab === 'voice' ? 'block w-full' : 'hidden'}>
-            <VoiceAssistant token={token} />
+          <VoiceAssistant token={token} user={user} />
           </div>
 
           <div className={activeTab === 'vault' ? 'block w-full' : 'hidden'}>

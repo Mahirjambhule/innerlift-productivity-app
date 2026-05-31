@@ -3,7 +3,6 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 
-// 1. THE PENALTY ROUTE
 router.post('/reset', protect, async (req, res) => {
   try {
     const updatedUser = await User.findByIdAndUpdate(
@@ -12,7 +11,6 @@ router.post('/reset', protect, async (req, res) => {
         $set: {
           xp: 0,
           streak: 0,
-          level: 1,
           lastActiveDate: null
         }
       },

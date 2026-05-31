@@ -4,6 +4,7 @@ import PomodoroTimer from '../Productivity/PomodoroTimer';
 
 export default function Dashboard({ user, token, setActiveTab }) {
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [isDecayAlertOpen, setIsDecayAlertOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [xp, setXp] = useState(150);
 
@@ -21,19 +22,20 @@ export default function Dashboard({ user, token, setActiveTab }) {
       const fortyEightHoursInMs = 48 * 60 * 60 * 1000; // 48 Hours
 
       if (now - lastActive > fortyEightHoursInMs) {
+        
+        setIsDecayAlertOpen(true);
 
-        alert("Codex Breach: 48 hours of inactivity detected. Streak and XP wiped to 0.");
-
-        // 1. Wipe Local Storage
+        // 1. Wipe Local Storage (BUT PRESERVE LEVEL)
         const storedUser = JSON.parse(localStorage.getItem('user'));
+        const currentLevel = storedUser?.level || user?.level || 1;
+        
         if (storedUser) {
           storedUser.xp = 0;
           storedUser.streak = 0;
-          storedUser.level = 1;
           localStorage.setItem('user', JSON.stringify(storedUser));
         }
 
-        // 2. Wipe the Backend Database so it doesn't jump back to old XP!
+        // 2. Wipe the Backend Database
         if (token) {
           try {
             await fetch('https://innerlift-8wtt.onrender.com/api/gamification/reset', {
@@ -48,12 +50,12 @@ export default function Dashboard({ user, token, setActiveTab }) {
           }
         }
 
-        // 3. Update the UI instantly
+        // 3. Update the UI instantly (Pass the preserved level)
         window.dispatchEvent(new CustomEvent('innerlift_update_stats', {
           detail: {
             xpAmount: 0,
             actionLabel: 'Codex Breach: Penalty Applied',
-            newStats: { xp: 0, streak: 0, level: 1 }
+            newStats: { xp: 0, streak: 0, level: currentLevel }
           }
         }));
 
@@ -73,7 +75,7 @@ export default function Dashboard({ user, token, setActiveTab }) {
       clearInterval(decayInterval);
       window.removeEventListener('focus', handleTabFocus);
     };
-  }, [token]);
+  }, [token, user]);
 
   const triggerMetricSync = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -95,6 +97,38 @@ export default function Dashboard({ user, token, setActiveTab }) {
         <PomodoroTimer token={token} onActionComplete={triggerMetricSync} />
       </div>
 
+      {/* NEW: Custom Decay Alert Modal */}
+      {isDecayAlertOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div 
+            className="w-full max-w-sm border border-red-500/50 p-6 relative shadow-2xl space-y-6 text-center"
+            style={{ backgroundColor: 'var(--bg-primary)' }}
+          >
+            <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <span className="text-red-500 text-2xl">⚠️</span>
+            </div>
+            
+            <div>
+              <h3 className="text-xl font-serif text-red-500 font-bold uppercase tracking-wide">Codex Breach</h3>
+              <p className="text-sm opacity-80 mt-2 leading-relaxed">
+                48 hours of inactivity detected. Your streak has been broken and your XP has been wiped to 0. 
+              </p>
+              <p className="text-xs opacity-50 mt-4 font-serif italic">
+                Consistency is the only path forward. Begin again.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsDecayAlertOpen(false)}
+              className="w-full py-3 text-xs font-semibold uppercase tracking-wider transition-all text-white bg-red-600 border border-red-600 hover:bg-red-700 cursor-pointer"
+            >
+              Accept Penalty
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Existing Rules Modal */}
       {isRulesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div

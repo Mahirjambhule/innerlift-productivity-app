@@ -91,13 +91,13 @@ export default function PomodoroTimer({ token, onActionComplete }) {
   const setTimerMode = (newMode) => {
     setMode(newMode);
     setIsActive(false);
-    setTimeLeft(newMode === 'focus' ? 25 * 60 : 1 * 60);
+    setTimeLeft(newMode === 'focus' ? 25 * 60 : 5 * 60);
   };
 
   const handleAcknowledge = () => {
     const nextMode = completionModal.type === 'focus' ? 'shortBreak' : 'focus';
     setMode(nextMode);
-    setTimeLeft(nextMode === 'focus' ? 25 * 60 : 1 * 60);
+    setTimeLeft(nextMode === 'focus' ? 25 * 60 : 5 * 60);
     setCompletionModal(null);
   };
 
