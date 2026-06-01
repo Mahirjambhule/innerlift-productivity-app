@@ -12,7 +12,6 @@ export default function VoiceAssistant({ token, user }) {
   const sessionActive = useRef(false);
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
-  const speechTimeout = useRef(null);
 
   const updateProcessing = (val) => {
     isProcessingRef.current = val;
@@ -35,13 +34,15 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   useEffect(() => {
-    if (window.speechSynthesis) window.speechSynthesis.getVoices();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+    }
   }, []);
 
   useEffect(() => {
     if (!recognition) return;
 
-    recognition.continuous = true; 
+    recognition.continuous = false;
     recognition.interimResults = true; 
     recognition.lang = 'en-US';
 
@@ -51,30 +52,31 @@ export default function VoiceAssistant({ token, user }) {
     };
 
     recognition.onresult = (event) => {
-      // Maps the exact array from Chrome without manually stitching it together
-      const currentSpeech = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join('');
+      let interimText = '';
+      let finalText = '';
 
-      setTranscript(currentSpeech);
-
-      if (speechTimeout.current) clearTimeout(speechTimeout.current);
-
-      speechTimeout.current = setTimeout(() => {
-        if (currentSpeech.trim() && !isProcessingRef.current) {
-          updateProcessing(true); // Lock it immediately so it can't double-fire
-          
-          try { 
-            recognition.abort(); // HARD KILL: Prevents Chrome from sending trailing duplicate words
-          } catch(e) {}
-          
-          processVoiceWithAI(currentSpeech.trim());
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalText += event.results[i][0].transcript;
+        } else {
+          interimText += event.results[i][0].transcript;
         }
-      }, 1500); 
+      }
+
+      setTranscript(finalText || interimText);
+
+      // Only send to AI when Chrome natively detects the end of the sentence
+      if (finalText) {
+        processVoiceWithAI(finalText);
+      }
     };
 
     recognition.onerror = (event) => {
-      if (event.error === 'not-allowed') {
+      if (event.error === 'no-speech') {
+        if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current) {
+          try { recognition.start(); } catch(e) {}
+        }
+      } else if (event.error === 'not-allowed') {
         setMicError('Microphone access blocked! Please allow it in Chrome.');
         sessionActive.current = false;
       }
@@ -83,13 +85,10 @@ export default function VoiceAssistant({ token, user }) {
 
     recognition.onend = () => {
       setIsListening(false);
+      // Restart the mic automatically only if we aren't currently talking or thinking
       if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current) {
         try { recognition.start(); } catch(e) {}
       }
-    };
-
-    return () => {
-      if (speechTimeout.current) clearTimeout(speechTimeout.current);
     };
   }, [recognition]); 
 
@@ -101,11 +100,12 @@ export default function VoiceAssistant({ token, user }) {
 
     window.speechSynthesis.cancel();
     
+    // Dynamic Name Fix
     const firstName = user?.name?.split(' ')[0] || user?.username || 'there';
     const greetingText = `Hi ${firstName}, I am here. How are you feeling today?`;
     
     setAiResponse(greetingText); 
-    setTranscript(''); 
+    setTranscript('');
 
     const utterance = new SpeechSynthesisUtterance(greetingText);
     const voices = window.speechSynthesis.getVoices();
@@ -118,7 +118,7 @@ export default function VoiceAssistant({ token, user }) {
     utterance.onend = () => {
       updateSpeaking(false);
       if (sessionActive.current && recognition) {
-        try { recognition.start(); } catch(e) {}
+        try { recognition.start(); } catch(e) { console.error(e); }
       }
     };
 
@@ -128,14 +128,11 @@ export default function VoiceAssistant({ token, user }) {
   const toggleListening = () => {
     if (sessionActive.current) {
       sessionActive.current = false;
-      updateProcessing(false);
-      updateSpeaking(false);
-      if (speechTimeout.current) clearTimeout(speechTimeout.current);
-      if (recognition) {
-        try { recognition.abort(); } catch(e) {}
-      }
+      if (recognition) recognition.stop();
       window.speechSynthesis.cancel();
       setIsListening(false);
+      updateSpeaking(false);
+      updateProcessing(false);
     } else {
       sessionActive.current = true;
       setTranscript('');
@@ -146,6 +143,7 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   const processVoiceWithAI = async (text) => {
+    updateProcessing(true);
     try {
       const res = await fetch('https://innerlift-8wtt.onrender.com/api/voice', {
         method: 'POST',
@@ -157,22 +155,14 @@ export default function VoiceAssistant({ token, user }) {
       });
 
       const data = await res.json();
-      
       if (res.ok && sessionActive.current) {
         setAiResponse(data.reply);
         speakResponse(data.reply);
-      } else {
-        throw new Error("API Response not OK");
       }
     } catch (error) {
-      console.error('Failed to fetch AI response:', error);
-      if (sessionActive.current) {
-        const errorMsg = "I'm sorry, I lost connection to the server. Could you repeat that?";
-        setAiResponse(errorMsg);
-        speakResponse(errorMsg);
-      }
+      console.error('Failed to fetch AI response');
     } finally {
-      updateProcessing(false); 
+      updateProcessing(false);
     }
   };
 
@@ -192,14 +182,11 @@ export default function VoiceAssistant({ token, user }) {
       utterance.onstart = () => updateSpeaking(true);
       utterance.onend = () => {
         updateSpeaking(false);
-        // Clear your text ONLY when the AI finishes speaking, so you can clearly see what she replied to!
-        setTranscript(''); 
+        setTranscript(''); // ONLY clears your text AFTER the AI finishes talking!
         if (sessionActive.current && recognition) {
-          try { recognition.start(); } catch(e) {}
+          try { recognition.start(); } catch(e) { console.error(e); }
         }
       };
-      
-      utterance.onerror = () => updateSpeaking(false);
 
       window.speechSynthesis.speak(utterance);
     }, 50);
