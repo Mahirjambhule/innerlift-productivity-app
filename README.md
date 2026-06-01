@@ -1,5 +1,12 @@
 # InnerLift 🚀
 
+<div align="center">
+  <!-- Replace the src link below with the actual path or URL to your logo image -->
+  <img src="frontend/public/fevicon.svg" alt="InnerLift Logo" width="180" />
+</div>
+
+> **The Symbol of Ascent:** The InnerLift logo represents the core philosophy of the ecosystem—relentless upward momentum and mental clarity. Its sharp, minimalist geometry embodies disciplined execution, while the upward trajectory reflects the continuous elevation of your focus, habits, and mindset.
+
 > **Nurture the Mind, Master the Day.**
 > An elite, AI-powered productivity and mindset ecosystem designed for high performers.
 
