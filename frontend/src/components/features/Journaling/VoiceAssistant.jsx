@@ -12,7 +12,6 @@ export default function VoiceAssistant({ token, user }) {
   const sessionActive = useRef(false);
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
-  const speechTimeout = useRef(null);
 
   const updateProcessing = (val) => {
     isProcessingRef.current = val;
@@ -41,8 +40,8 @@ export default function VoiceAssistant({ token, user }) {
   useEffect(() => {
     if (!recognition) return;
 
-    // CONTINUOUS MUST BE TRUE so it doesn't cut you off when you breathe
-    recognition.continuous = true; 
+    // Chrome handles silence naturally when continuous is false.
+    recognition.continuous = false; 
     recognition.interimResults = true; 
     recognition.lang = 'en-US';
 
@@ -52,26 +51,26 @@ export default function VoiceAssistant({ token, user }) {
     };
 
     recognition.onresult = (event) => {
-      // THE LOCK: If the AI is thinking or talking, completely ignore the microphone
       if (isProcessingRef.current || isSpeakingRef.current) return;
 
-      // Cleanly maps exactly what Chrome hears, no manual string gluing (fixes duplicates)
-      const currentSpeech = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join('');
+      let currentText = '';
+      let isFinalSentence = false;
 
-      setTranscript(currentSpeech);
-
-      if (speechTimeout.current) clearTimeout(speechTimeout.current);
-
-      // SILENCE DETECTION: Wait 1.5 seconds after you stop talking to reply
-      speechTimeout.current = setTimeout(() => {
-        if (currentSpeech.trim()) {
-          updateProcessing(true); // LOCK THE MIC instantly so no trailing words get in
-          try { recognition.stop(); } catch(e) {}
-          processVoiceWithAI(currentSpeech.trim());
+      // Perfectly captures exactly what Chrome hears, no duplication
+      for (let i = 0; i < event.results.length; i++) {
+        currentText += event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          isFinalSentence = true; // Chrome detected you paused/stopped talking
         }
-      }, 1500); 
+      }
+
+      setTranscript(currentText);
+
+      // ONLY send to API when Chrome guarantees you are completely done talking
+      if (isFinalSentence && currentText.trim()) {
+        updateProcessing(true); // Lock instantly
+        processVoiceWithAI(currentText.trim());
+      }
     };
 
     recognition.onerror = (event) => {
@@ -84,14 +83,10 @@ export default function VoiceAssistant({ token, user }) {
 
     recognition.onend = () => {
       setIsListening(false);
-      // Only auto-restart the mic if the session is active AND we are idle
+      // Auto-restarts mic only if the app isn't busy talking or fetching data
       if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current) {
         try { recognition.start(); } catch(e) {}
       }
-    };
-
-    return () => {
-      if (speechTimeout.current) clearTimeout(speechTimeout.current);
     };
   }, [recognition]); 
 
@@ -132,7 +127,6 @@ export default function VoiceAssistant({ token, user }) {
       sessionActive.current = false;
       updateProcessing(false);
       updateSpeaking(false);
-      if (speechTimeout.current) clearTimeout(speechTimeout.current);
       if (recognition) {
         try { recognition.stop(); } catch(e) {}
       }
@@ -164,15 +158,14 @@ export default function VoiceAssistant({ token, user }) {
         setAiResponse(data.reply);
         speakResponse(data.reply);
       } else {
-        updateProcessing(false); // Unlock if API fails
+        updateProcessing(false); 
       }
     } catch (error) {
       console.error('Failed to fetch AI response:', error);
+      updateProcessing(false); // Unlocks the UI so it doesn't freeze
       if (sessionActive.current) {
-        setAiResponse("I'm sorry, I lost connection to the server. Could you repeat that?");
-        speakResponse("I'm sorry, I lost connection to the server. Could you repeat that?");
-      } else {
-        updateProcessing(false);
+        setAiResponse("Connection failed. Let's try that again.");
+        speakResponse("Connection failed. Let's try that again.");
       }
     }
   };
@@ -194,13 +187,13 @@ export default function VoiceAssistant({ token, user }) {
       utterance.pitch = 1.1;
       
       utterance.onstart = () => {
-        updateProcessing(false); // Transfer the lock from Processing to Speaking
+        updateProcessing(false); 
         updateSpeaking(true);
       };
       
       utterance.onend = () => {
         updateSpeaking(false);
-        setTranscript(''); // Clear your text ONLY when she finishes talking
+        setTranscript(''); // Clear the text ONLY after she finishes replying
         if (sessionActive.current && recognition) {
           try { recognition.start(); } catch(e) {}
         }
@@ -209,6 +202,9 @@ export default function VoiceAssistant({ token, user }) {
       utterance.onerror = () => {
         updateProcessing(false);
         updateSpeaking(false);
+        if (sessionActive.current && recognition) {
+          try { recognition.start(); } catch(e) {}
+        }
       };
 
       window.speechSynthesis.speak(utterance);
