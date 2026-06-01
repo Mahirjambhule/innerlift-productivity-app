@@ -1,27 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function VoiceAssistant({ token, user }) {
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
+  const [status, setStatus] = useState('idle');
+  
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [micError, setMicError] = useState('');
-
-  const sessionActive = useRef(false);
-  const isProcessingRef = useRef(false);
-  const isSpeakingRef = useRef(false);
-
-  const setProcessingState = (val) => {
-    isProcessingRef.current = val;
-    setIsProcessing(val);
-  };
-  
-  const setSpeakingState = (val) => {
-    isSpeakingRef.current = val;
-    setIsSpeaking(val);
-  };
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const [recognition] = useState(() => SpeechRecognition ? new SpeechRecognition() : null);
@@ -38,12 +22,6 @@ export default function VoiceAssistant({ token, user }) {
     if (window.speechSynthesis) window.speechSynthesis.getVoices();
   }, []);
 
-  const ensureMicIsRunning = () => {
-    if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current && recognition) {
-      try { recognition.start(); } catch(e) {}
-    }
-  };
-
   useEffect(() => {
     if (!recognition) return;
 
@@ -51,115 +29,69 @@ export default function VoiceAssistant({ token, user }) {
     recognition.interimResults = true; 
     recognition.lang = 'en-US';
 
-    recognition.onstart = () => {
-      setMicError('');
-      setIsListening(true);
-    };
-
     recognition.onresult = (event) => {
-      if (isProcessingRef.current || isSpeakingRef.current) return;
-
       let currentText = '';
-      let isFinalSentence = false;
+      let isFinal = false;
 
       for (let i = 0; i < event.results.length; i++) {
         currentText += event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          isFinalSentence = true;
-        }
+        if (event.results[i].isFinal) isFinal = true;
       }
 
       setTranscript(currentText);
 
-      if (isFinalSentence && currentText.trim()) {
-        console.log("🎤 Mic heard final sentence:", currentText.trim());
-        setProcessingState(true); 
-        
-        try { recognition.abort(); } catch(e) {} 
-        
+      if (isFinal && currentText.trim()) {
+        try { recognition.stop(); } catch(e) {}
         processVoiceWithAI(currentText.trim());
       }
     };
 
     recognition.onerror = (event) => {
-      console.warn("🎤 Mic Error:", event.error);
-      if (event.error === 'not-allowed') {
-        setMicError('Microphone access blocked! Please allow it in Chrome.');
-        sessionActive.current = false;
-      }
-      setIsListening(false);
+      if (event.error === 'not-allowed') setMicError('Microphone access blocked!');
+      closeSession();
     };
+  }, [recognition]);
 
-    recognition.onend = () => {
-      setIsListening(false);
-      ensureMicIsRunning(); 
-    };
-  }, [recognition]); 
-
-  const initiateGreeting = () => {
-    if (!window.speechSynthesis) {
-      if (recognition && sessionActive.current) recognition.start();
-      return;
+  const toggleSession = () => {
+    if (status !== 'idle') {
+      closeSession();
+    } else {
+      startSession();
     }
+  };
 
-    // KILL MIC BEFORE SPEAKING
-    if (recognition) {
-      try { recognition.abort(); } catch(e) {}
-    }
+  const startSession = () => {
+    setTranscript('');
+    setAiResponse('');
+    setMicError('');
+    setStatus('greeting');
 
     window.speechSynthesis.cancel();
-    window.speechSynthesis.resume(); 
-    
+    window.speechSynthesis.resume();
+
     const firstName = user?.name?.split(' ')[0] || user?.username || 'there';
-    const greetingText = `Hi ${firstName}, I am here. How are you feeling today?`;
-    
-    setAiResponse(greetingText); 
-    setTranscript(''); 
+    const greetingText = `Hi ${firstName}, How are you feeling today?`;
+    setAiResponse(greetingText);
 
     const utterance = new SpeechSynthesisUtterance(greetingText);
-    const voices = window.speechSynthesis.getVoices();
-    
-    utterance.voice = getSweetVoice(voices);
-    utterance.rate = 0.95; 
-    utterance.pitch = 1.1; 
+    utterance.voice = getSweetVoice(window.speechSynthesis.getVoices());
+    utterance.rate = 0.95;
+    utterance.pitch = 1.1;
 
-    utterance.onstart = () => setSpeakingState(true);
     utterance.onend = () => {
-      setSpeakingState(false);
-      // Wait for room echo to die before opening mic
-      setTimeout(() => ensureMicIsRunning(), 200);
+      setStatus('listening');
+      if (recognition) {
+        try { recognition.start(); } catch(e) { closeSession(); }
+      }
     };
-    utterance.onerror = () => {
-      setSpeakingState(false);
-      setTimeout(() => ensureMicIsRunning(), 200);
-    };
-
+    
+    utterance.onerror = () => closeSession();
     window.speechSynthesis.speak(utterance);
   };
 
-  const toggleListening = () => {
-    if (sessionActive.current) {
-      console.log("🛑 Manually stopping session.");
-      sessionActive.current = false;
-      setProcessingState(false);
-      setSpeakingState(false);
-      if (recognition) {
-        try { recognition.abort(); } catch(e) {}
-      }
-      window.speechSynthesis.cancel();
-      setIsListening(false);
-    } else {
-      console.log("🟢 Starting new session.");
-      sessionActive.current = true;
-      setTranscript('');
-      setAiResponse('');
-      setMicError('');
-      initiateGreeting();
-    }
-  };
-
+  // 3. FETCH AI RESPONSE
   const processVoiceWithAI = async (text) => {
-    console.log("🧠 Sending to AI API...");
+    setStatus('processing');
     try {
       const res = await fetch('https://innerlift-8wtt.onrender.com/api/voice', {
         method: 'POST',
@@ -172,77 +104,47 @@ export default function VoiceAssistant({ token, user }) {
 
       const data = await res.json();
       
-      if (res.ok && sessionActive.current) {
-        console.log("✅ AI Response received:", data.reply);
+      if (res.ok) {
         setAiResponse(data.reply);
-        speakResponse(data.reply);
+        speakFinalResponse(data.reply);
       } else {
         throw new Error("Server error");
       }
     } catch (error) {
-      console.error('❌ Failed to fetch AI response:', error);
-      if (sessionActive.current) {
-        setAiResponse("Connection failed.");
-        speakResponse("Connection failed."); 
-      } else {
-        setProcessingState(false); 
-        ensureMicIsRunning();
-      }
+      setAiResponse("Connection failed.");
+      speakFinalResponse("Connection failed.");
     }
   };
 
-  const speakResponse = (text) => {
-    if (!window.speechSynthesis || !text) {
-      setProcessingState(false);
-      ensureMicIsRunning();
-      return;
-    }
-
-    console.log("🔊 Speaking response...");
-    
-    if (recognition) {
-      try { recognition.abort(); } catch(e) {}
-    }
-
+  const speakFinalResponse = (text) => {
+    setStatus('speaking');
     window.speechSynthesis.cancel();
-    window.speechSynthesis.resume(); 
+    window.speechSynthesis.resume();
 
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      const voices = window.speechSynthesis.getVoices();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = getSweetVoice(window.speechSynthesis.getVoices());
+    utterance.rate = 0.95;
+    utterance.pitch = 1.1;
 
-      utterance.voice = getSweetVoice(voices);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.1;
-      
-      utterance.onstart = () => {
-        setProcessingState(false); 
-        setSpeakingState(true);
-      };
-      
-      utterance.onend = () => {
-        console.log("🔇 Finished speaking.");
-        setSpeakingState(false);
-        setTranscript(''); 
-        setTimeout(() => ensureMicIsRunning(), 200); 
-      };
-      
-      utterance.onerror = (e) => {
-        console.error("❌ Audio playback error:", e);
-        setProcessingState(false);
-        setSpeakingState(false);
-        setTimeout(() => ensureMicIsRunning(), 200);
-      };
+    utterance.onend = () => closeSession();
+    utterance.onerror = () => closeSession();
 
-      window.speechSynthesis.speak(utterance);
-    }, 50);
+    window.speechSynthesis.speak(utterance);
   };
 
-  let statusText = "Speak your mind. The AI will listen and advise.";
-  if (!sessionActive.current) statusText = "Click the mic to start a session.";
-  else if (isSpeaking) statusText = "InnerLift is speaking...";
-  else if (isProcessing) statusText = "Thinking deeply...";
-  else if (isListening) statusText = "Listening to you... (Speak now)";
+  const closeSession = () => {
+    setStatus('idle');
+    if (recognition) { try { recognition.abort(); } catch(e) {} }
+    window.speechSynthesis.cancel();
+  };
+
+  // UI DISPLAY LOGIC
+  let statusText = "Click the mic to start a session.";
+  if (status === 'greeting' || status === 'speaking') statusText = "InnerLift is speaking...";
+  else if (status === 'listening') statusText = "Listening to you... (Speak now)";
+  else if (status === 'processing') statusText = "Thinking deeply...";
+
+  const isActive = status !== 'idle';
 
   if (!recognition) {
     return <div className="p-8 border text-sm text-red-500">Browser does not support Web Speech API. Use Chrome.</div>;
@@ -260,26 +162,26 @@ export default function VoiceAssistant({ token, user }) {
 
       <div className="text-center mb-12 relative z-10">
         <h2 className="text-2xl font-serif font-medium mb-2">Voice Mentor</h2>
-        <p className={`text-sm transition-opacity duration-300 ${sessionActive.current ? 'opacity-100 font-medium' : 'opacity-60'}`}>
+        <p className={`text-sm transition-opacity duration-300 ${isActive ? 'opacity-100 font-medium' : 'opacity-60'}`}>
           {statusText}
         </p>
       </div>
 
       <div className="flex justify-center mb-12 relative w-24 h-24 mx-auto">
-        {(isListening || isSpeaking || isProcessing) && sessionActive.current && (
+        {isActive && (
           <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ backgroundColor: 'var(--text-primary)' }}></div>
         )}
 
         <button
-          onClick={toggleListening}
+          onClick={toggleSession}
           className="absolute inset-0 z-10 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer"
           style={{
-            backgroundColor: sessionActive.current ? 'var(--text-primary)' : 'var(--bg-primary)',
-            color: sessionActive.current ? 'var(--bg-primary)' : 'var(--text-primary)',
+            backgroundColor: isActive ? 'var(--text-primary)' : 'var(--bg-primary)',
+            color: isActive ? 'var(--bg-primary)' : 'var(--text-primary)',
             borderColor: 'var(--text-primary)'
           }}
         >
-          {sessionActive.current ? (
+          {isActive ? (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
           ) : (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>
@@ -293,7 +195,7 @@ export default function VoiceAssistant({ token, user }) {
         </div>
       )}
 
-      {sessionActive.current && (
+      {isActive && (
         <div className="space-y-6 min-h-[150px]">
           {transcript && (
             <div className="flex flex-col items-end animate-fade-in">
@@ -304,7 +206,7 @@ export default function VoiceAssistant({ token, user }) {
             </div>
           )}
 
-          {isProcessing && (
+          {status === 'processing' && (
             <div className="flex flex-col items-start animate-fade-in">
               <span className="text-xs uppercase tracking-widest opacity-50 mb-1">InnerLift</span>
               <div className="p-4 flex gap-1 items-center">
@@ -315,7 +217,7 @@ export default function VoiceAssistant({ token, user }) {
             </div>
           )}
 
-          {aiResponse && !isProcessing && (
+          {aiResponse && status !== 'processing' && (
             <div className="flex flex-col items-start animate-fade-in">
               <span className="text-xs uppercase tracking-widest opacity-50 mb-1">InnerLift</span>
               <div className="p-4 border border-l-4 rounded-br-xl rounded-t-xl max-w-[100%] md:max-w-[80%] font-serif leading-relaxed" style={{ borderColor: 'var(--border-subtle)', borderLeftColor: 'var(--text-primary)', backgroundColor: 'var(--bg-primary)' }}>
