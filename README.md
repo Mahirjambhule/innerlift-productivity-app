@@ -1,96 +1,92 @@
-# InnerLift 🚀
+# InnerLift AI 🚀
 
-> **Nurture the Mind, Master the Day.**
-> An elite, AI-powered productivity and mindset ecosystem designed for high performers.
+**Live Frontend:** [https://innerlift-productivity-app.vercel.app/](https://innerlift-productivity-app.vercel.app/)  
+**Live Backend API:** [https://innerlift-8wtt.onrender.com](https://innerlift-8wtt.onrender.com)
 
-InnerLift is not just a to-do list; it is a comprehensive, gamified execution system. Built on the MERN stack and supercharged by Google's Gemini AI, InnerLift acts as a tactical daily architect, psychological calibrator, and anonymous community platform to help users achieve maximum focus without burning out.
+InnerLift is an elite, highly-focused performance and life coaching web application. It combines advanced AI voice interaction with a strict gamified progression system to help users maintain relentless consistency in their daily habits, tasks, and deep work sessions.
 
 ---
 
-## 🌟 Core Features
+## 🔥 Key Features
 
-### 🧠 Mind Space Analytics (AI Journal)
-Log your raw, unfiltered thoughts, stressors, or wins. The integrated Gemini AI instantly processes your mental baseline, delivering sentiment scores, psychological reflections, and concrete, actionable protocols to keep you executing efficiently.
-
-### ⚙️ The Routine Engine
-Stop manually planning your days. Input your specific constraints (e.g., classes, gym time, work hours), and the AI will engineer a ruthless, time-blocked daily blueprint complete with a driving daily philosophy.
-
-### 🎯 Tactical Objectives
-A clean, minimalist workspace to break down your targets. Every completed objective feeds into a global gamification system, awarding XP and triggering sleek animations to reward your discipline and build momentum.
-
-### 🌐 The Collective
-An anonymous, minimalist community feed. "Seekers" can publish milestones, share momentum, and acknowledge each other's wins without the toxic noise, algorithmic doom-scrolling, or distractions of standard social media.
+* **Elite Voice Mentor (Powered by Gemini 2.5 Flash):** * A fully interactive, hands-free AI voice coach.
+    * Custom-built utilizing the Web Speech API with bulletproof silence-detection and native state-locking.
+    * Provides zero-fluff, highly actionable advice strictly between 3 to 6 sentences.
+* **Codex Disciplina (Strict Gamification System):**
+    * Earn XP and level up deterministically (100 XP = 1 Level) by completing Pomodoro blocks, tasks, and AI journal entries.
+    * **48-Hour Decay Rule:** A strict penalty system. If a user goes 48 hours without completing an essential action, their streak and XP are instantly wiped to zero (while preserving their long-term level).
+* **Deep Work Tracking:** Integrated Pomodoro timer tied directly to the gamification engine.
+* **Task & Mental Logs:** Real-time task management and AI-analyzed daily journaling.
 
 ---
 
 ## 🛠️ Tech Stack
 
-*   **Frontend:** React.js, Tailwind CSS (Custom Dark/Light mode support)
-*   **Backend:** Node.js, Express.js
-*   **Database:** MongoDB Atlas
-*   **Artificial Intelligence:** Google Generative AI (Gemini 1.5/2.5 Flash)
-*   **Authentication:** JSON Web Tokens (JWT) & bcrypt
+**Frontend:**
+* React.js (Vite)
+* Tailwind CSS (Dark-theme optimized UI)
+* Web Speech API (SpeechRecognition & SpeechSynthesis)
+* Deployed on Vercel
+
+**Backend:**
+* Node.js & Express.js
+* MongoDB (Mongoose) for user state and progression tracking
+* Google Generative AI SDK (`@google/generative-ai`)
+* JWT Authentication
+* Deployed on Render
 
 ---
 
-## 🚀 Getting Started
+## 💻 Local Setup & Installation
 
-Follow these steps to set up InnerLift on your local machine.
+To run InnerLift locally, you will need [Node.js](https://nodejs.org/) and a [Google Gemini API Key](https://aistudio.google.com/).
 
-### Prerequisites
-*   Node.js installed
-*   A MongoDB Atlas account and cluster
-*   A Google Gemini API Key
-
-### 1. Clone the Repository
+### 1. Clone the repository
 \`\`\`bash
-git clone https://github.com/Mahirjambhule/innerlift-productivity-app.git
-cd innerlift-productivity-app
+git clone https://github.com/your-username/innerlift-ai.git
+cd innerlift-ai
 \`\`\`
 
-### 2. Environment Variables
-Create a `.env` file in your **backend** directory and add the following keys:
+### 2. Backend Setup
+\`\`\`bash
+cd backend
+npm install
+\`\`\`
+Create a `.env` file in the `backend` directory and add the following variables:
 \`\`\`env
 PORT=5000
-MONGO_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_super_secret_jwt_key
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
 GEMINI_API_KEY=your_google_gemini_api_key
 \`\`\`
-
-### 3. Install Dependencies
-You will need to install the dependencies for both the server and the client.
-
-**For the Backend:**
-\`\`\`bash
-Assuming you are in the root directory and your backend is there, or navigate to your backend folder
-npm install
-\`\`\`
-
-**For the Frontend:**
-\`\`\`bash
-cd client # or whatever your frontend folder is named
-npm install
-\`\`\`
-
-### 4. Run the Application
 Start the backend server:
 \`\`\`bash
-npm run server # or node server.js
+npm start
+# or for development: npm run dev
 \`\`\`
 
-Start the React frontend (in a separate terminal):
+### 3. Frontend Setup
+Open a new terminal window:
 \`\`\`bash
-cd client
+cd frontend
+npm install
+\`\`\`
+*(Optional)* If you are testing locally, ensure your API fetch routes in the frontend point to `http://localhost:5000` instead of the live Render URL.
+
+Start the Vite development server:
+\`\`\`bash
 npm run dev
 \`\`\`
 
-The application should now be running on `http://localhost:5173` (or your default Vite/CRA port), connected to your backend at `https://innerlift-8wtt.onrender.com`.
+---
+
+## 🧠 Architecture Notes
+
+* **Voice Loop Failsafes:** The Voice Assistant component is built with strict `isProcessing` and `isSpeaking` ref locks to prevent the mic from picking up the system's own audio, effectively eliminating infinite feedback loops.
+* **Database Preservation:** Gamification penalty routes utilize MongoDB's `$set` strictly on `xp` and `streak` to guarantee long-term rank (`level`) preservation during a Codex Breach.
 
 ---
 
-## 🎨 UI / UX Philosophy
+## 👨‍💻 Author
 
-InnerLift was designed with absolute minimalism in mind. The interface relies on sharp borders, readable typography, and custom modal overlays to keep the user entirely focused on their objectives. No pop-ups, no browser alerts, no unnecessary colors—just pure execution space.
-
----
-
+**Mahir Hansraj Jambhule**
