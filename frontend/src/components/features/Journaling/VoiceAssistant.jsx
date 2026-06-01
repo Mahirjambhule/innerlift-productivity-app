@@ -13,7 +13,6 @@ export default function VoiceAssistant({ token, user }) {
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
 
-  // Sync state and refs instantly so they never mismatch
   const setProcessingState = (val) => {
     isProcessingRef.current = val;
     setIsProcessing(val);
@@ -72,12 +71,11 @@ export default function VoiceAssistant({ token, user }) {
 
       setTranscript(currentText);
 
-      // Only trigger when you completely finish the sentence natively
       if (isFinalSentence && currentText.trim()) {
         console.log("🎤 Mic heard final sentence:", currentText.trim());
-        setProcessingState(true); // Hard lock the state immediately
+        setProcessingState(true); 
         
-        try { recognition.stop(); } catch(e) {} 
+        try { recognition.abort(); } catch(e) {} 
         
         processVoiceWithAI(currentText.trim());
       }
@@ -104,8 +102,13 @@ export default function VoiceAssistant({ token, user }) {
       return;
     }
 
+    // KILL MIC BEFORE SPEAKING
+    if (recognition) {
+      try { recognition.abort(); } catch(e) {}
+    }
+
     window.speechSynthesis.cancel();
-    window.speechSynthesis.resume(); // FORCE WAKE CHROME AUDIO
+    window.speechSynthesis.resume(); 
     
     const firstName = user?.name?.split(' ')[0] || user?.username || 'there';
     const greetingText = `Hi ${firstName}, I am here. How are you feeling today?`;
@@ -123,11 +126,12 @@ export default function VoiceAssistant({ token, user }) {
     utterance.onstart = () => setSpeakingState(true);
     utterance.onend = () => {
       setSpeakingState(false);
-      ensureMicIsRunning();
+      // Wait for room echo to die before opening mic
+      setTimeout(() => ensureMicIsRunning(), 200);
     };
     utterance.onerror = () => {
       setSpeakingState(false);
-      ensureMicIsRunning();
+      setTimeout(() => ensureMicIsRunning(), 200);
     };
 
     window.speechSynthesis.speak(utterance);
@@ -140,7 +144,7 @@ export default function VoiceAssistant({ token, user }) {
       setProcessingState(false);
       setSpeakingState(false);
       if (recognition) {
-        try { recognition.stop(); } catch(e) {}
+        try { recognition.abort(); } catch(e) {}
       }
       window.speechSynthesis.cancel();
       setIsListening(false);
@@ -173,19 +177,17 @@ export default function VoiceAssistant({ token, user }) {
         setAiResponse(data.reply);
         speakResponse(data.reply);
       } else {
-        throw new Error("Server returned an error or session ended.");
+        throw new Error("Server error");
       }
     } catch (error) {
       console.error('❌ Failed to fetch AI response:', error);
       if (sessionActive.current) {
-        const errorMsg = "Connection failed. Let's try that again.";
-        setAiResponse(errorMsg);
-        speakResponse(errorMsg);
+        setAiResponse("Connection failed.");
+        speakResponse("Connection failed."); 
+      } else {
+        setProcessingState(false); 
+        ensureMicIsRunning();
       }
-    } finally {
-      // THIS IS THE FAILSAFE. It guarantees the app unlocks even if the server crashes.
-      setProcessingState(false); 
-      ensureMicIsRunning();
     }
   };
 
@@ -197,8 +199,13 @@ export default function VoiceAssistant({ token, user }) {
     }
 
     console.log("🔊 Speaking response...");
+    
+    if (recognition) {
+      try { recognition.abort(); } catch(e) {}
+    }
+
     window.speechSynthesis.cancel();
-    window.speechSynthesis.resume(); // FORCE WAKE CHROME AUDIO
+    window.speechSynthesis.resume(); 
 
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(text);
@@ -217,14 +224,14 @@ export default function VoiceAssistant({ token, user }) {
         console.log("🔇 Finished speaking.");
         setSpeakingState(false);
         setTranscript(''); 
-        ensureMicIsRunning(); // Hands the mic perfectly back to you
+        setTimeout(() => ensureMicIsRunning(), 200); 
       };
       
       utterance.onerror = (e) => {
         console.error("❌ Audio playback error:", e);
         setProcessingState(false);
         setSpeakingState(false);
-        ensureMicIsRunning();
+        setTimeout(() => ensureMicIsRunning(), 200);
       };
 
       window.speechSynthesis.speak(utterance);
