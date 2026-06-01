@@ -13,11 +13,13 @@ export default function VoiceAssistant({ token, user }) {
   const isProcessingRef = useRef(false);
   const isSpeakingRef = useRef(false);
 
-  const updateProcessing = (val) => {
+  // Sync state and refs instantly so they never mismatch
+  const setProcessingState = (val) => {
     isProcessingRef.current = val;
     setIsProcessing(val);
   };
-  const updateSpeaking = (val) => {
+  
+  const setSpeakingState = (val) => {
     isSpeakingRef.current = val;
     setIsSpeaking(val);
   };
@@ -37,7 +39,6 @@ export default function VoiceAssistant({ token, user }) {
     if (window.speechSynthesis) window.speechSynthesis.getVoices();
   }, []);
 
-  // FAILSAFE: Always restarts the mic if we are supposed to be active but are idle
   const ensureMicIsRunning = () => {
     if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current && recognition) {
       try { recognition.start(); } catch(e) {}
@@ -71,15 +72,19 @@ export default function VoiceAssistant({ token, user }) {
 
       setTranscript(currentText);
 
-      // PERFECTED: Only fires API when sentence is completely finished natively
+      // Only trigger when you completely finish the sentence natively
       if (isFinalSentence && currentText.trim()) {
-        updateProcessing(true);
-        try { recognition.stop(); } catch(e) {} // Stop mic to prevent glitching while thinking
+        console.log("🎤 Mic heard final sentence:", currentText.trim());
+        setProcessingState(true); // Hard lock the state immediately
+        
+        try { recognition.stop(); } catch(e) {} 
+        
         processVoiceWithAI(currentText.trim());
       }
     };
 
     recognition.onerror = (event) => {
+      console.warn("🎤 Mic Error:", event.error);
       if (event.error === 'not-allowed') {
         setMicError('Microphone access blocked! Please allow it in Chrome.');
         sessionActive.current = false;
@@ -89,7 +94,7 @@ export default function VoiceAssistant({ token, user }) {
 
     recognition.onend = () => {
       setIsListening(false);
-      ensureMicIsRunning(); // If mic naturally stops, instantly kick it back on if idle
+      ensureMicIsRunning(); 
     };
   }, [recognition]); 
 
@@ -100,6 +105,7 @@ export default function VoiceAssistant({ token, user }) {
     }
 
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume(); // FORCE WAKE CHROME AUDIO
     
     const firstName = user?.name?.split(' ')[0] || user?.username || 'there';
     const greetingText = `Hi ${firstName}, I am here. How are you feeling today?`;
@@ -114,9 +120,13 @@ export default function VoiceAssistant({ token, user }) {
     utterance.rate = 0.95; 
     utterance.pitch = 1.1; 
 
-    utterance.onstart = () => updateSpeaking(true);
+    utterance.onstart = () => setSpeakingState(true);
     utterance.onend = () => {
-      updateSpeaking(false);
+      setSpeakingState(false);
+      ensureMicIsRunning();
+    };
+    utterance.onerror = () => {
+      setSpeakingState(false);
       ensureMicIsRunning();
     };
 
@@ -125,15 +135,17 @@ export default function VoiceAssistant({ token, user }) {
 
   const toggleListening = () => {
     if (sessionActive.current) {
+      console.log("🛑 Manually stopping session.");
       sessionActive.current = false;
-      updateProcessing(false);
-      updateSpeaking(false);
+      setProcessingState(false);
+      setSpeakingState(false);
       if (recognition) {
         try { recognition.stop(); } catch(e) {}
       }
       window.speechSynthesis.cancel();
       setIsListening(false);
     } else {
+      console.log("🟢 Starting new session.");
       sessionActive.current = true;
       setTranscript('');
       setAiResponse('');
@@ -143,6 +155,7 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   const processVoiceWithAI = async (text) => {
+    console.log("🧠 Sending to AI API...");
     try {
       const res = await fetch('https://innerlift-8wtt.onrender.com/api/voice', {
         method: 'POST',
@@ -156,32 +169,36 @@ export default function VoiceAssistant({ token, user }) {
       const data = await res.json();
       
       if (res.ok && sessionActive.current) {
+        console.log("✅ AI Response received:", data.reply);
         setAiResponse(data.reply);
         speakResponse(data.reply);
       } else {
-        updateProcessing(false); 
-        ensureMicIsRunning(); // Failsafe unlock if API is empty
+        throw new Error("Server returned an error or session ended.");
       }
     } catch (error) {
-      console.error('Failed to fetch AI response:', error);
+      console.error('❌ Failed to fetch AI response:', error);
       if (sessionActive.current) {
-        setAiResponse("Connection failed. Let's try that again.");
-        speakResponse("Connection failed. Let's try that again.");
-      } else {
-        updateProcessing(false);
-        ensureMicIsRunning(); // Failsafe unlock if crashed
+        const errorMsg = "Connection failed. Let's try that again.";
+        setAiResponse(errorMsg);
+        speakResponse(errorMsg);
       }
+    } finally {
+      // THIS IS THE FAILSAFE. It guarantees the app unlocks even if the server crashes.
+      setProcessingState(false); 
+      ensureMicIsRunning();
     }
   };
 
   const speakResponse = (text) => {
-    if (!window.speechSynthesis) {
-      updateProcessing(false);
+    if (!window.speechSynthesis || !text) {
+      setProcessingState(false);
       ensureMicIsRunning();
       return;
     }
 
+    console.log("🔊 Speaking response...");
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume(); // FORCE WAKE CHROME AUDIO
 
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(text);
@@ -192,19 +209,21 @@ export default function VoiceAssistant({ token, user }) {
       utterance.pitch = 1.1;
       
       utterance.onstart = () => {
-        updateProcessing(false); 
-        updateSpeaking(true);
+        setProcessingState(false); 
+        setSpeakingState(true);
       };
       
       utterance.onend = () => {
-        updateSpeaking(false);
+        console.log("🔇 Finished speaking.");
+        setSpeakingState(false);
         setTranscript(''); 
-        ensureMicIsRunning(); // Automatically re-opens the mic for your next sentence!
+        ensureMicIsRunning(); // Hands the mic perfectly back to you
       };
       
-      utterance.onerror = () => {
-        updateProcessing(false);
-        updateSpeaking(false);
+      utterance.onerror = (e) => {
+        console.error("❌ Audio playback error:", e);
+        setProcessingState(false);
+        setSpeakingState(false);
         ensureMicIsRunning();
       };
 
