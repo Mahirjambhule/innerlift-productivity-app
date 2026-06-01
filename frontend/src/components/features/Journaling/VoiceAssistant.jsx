@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function VoiceAssistant({ token, user }) {
   const [status, setStatus] = useState('idle');
-  
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [micError, setMicError] = useState('');
+
+  const isProcessingRef = useRef(false);
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const [recognition] = useState(() => SpeechRecognition ? new SpeechRecognition() : null);
@@ -40,8 +41,8 @@ export default function VoiceAssistant({ token, user }) {
 
       setTranscript(currentText);
 
-      if (isFinal && currentText.trim()) {
-        try { recognition.stop(); } catch(e) {}
+      if (isFinal && currentText.trim() && !isProcessingRef.current) {
+        try { recognition.stop(); } catch (e) {}
         processVoiceWithAI(currentText.trim());
       }
     };
@@ -61,6 +62,7 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   const startSession = () => {
+    isProcessingRef.current = false;
     setTranscript('');
     setAiResponse('');
     setMicError('');
@@ -81,7 +83,7 @@ export default function VoiceAssistant({ token, user }) {
     utterance.onend = () => {
       setStatus('listening');
       if (recognition) {
-        try { recognition.start(); } catch(e) { closeSession(); }
+        try { recognition.start(); } catch (e) { closeSession(); }
       }
     };
     
@@ -90,7 +92,10 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   const processVoiceWithAI = async (text) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
     setStatus('processing');
+
     try {
       const res = await fetch('https://innerlift-8wtt.onrender.com/api/voice', {
         method: 'POST',
@@ -106,6 +111,11 @@ export default function VoiceAssistant({ token, user }) {
       if (res.ok) {
         setAiResponse(data.reply);
         speakFinalResponse(data.reply);
+      } else if (res.status === 429) {
+        // Capture our smart backend rate limit message and speak it aloud gracefully
+        const rateLimitMessage = data.reply || "Rate limit reached. Maintain focus and try again in one minute.";
+        setAiResponse(rateLimitMessage);
+        speakFinalResponse(rateLimitMessage);
       } else {
         throw new Error("Server error");
       }
@@ -120,7 +130,7 @@ export default function VoiceAssistant({ token, user }) {
     window.speechSynthesis.cancel();
     window.speechSynthesis.resume();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtuternace || new SpeechSynthesisUtterance(text);
     utterance.voice = getSweetVoice(window.speechSynthesis.getVoices());
     utterance.rate = 0.95;
     utterance.pitch = 1.1;
@@ -132,8 +142,9 @@ export default function VoiceAssistant({ token, user }) {
   };
 
   const closeSession = () => {
+    isProcessingRef.current = false;
     setStatus('idle');
-    if (recognition) { try { recognition.abort(); } catch(e) {} }
+    if (recognition) { try { recognition.abort(); } catch (e) {} }
     window.speechSynthesis.cancel();
   };
 
