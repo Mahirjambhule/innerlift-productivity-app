@@ -37,10 +37,16 @@ export default function VoiceAssistant({ token, user }) {
     if (window.speechSynthesis) window.speechSynthesis.getVoices();
   }, []);
 
+  // FAILSAFE: Always restarts the mic if we are supposed to be active but are idle
+  const ensureMicIsRunning = () => {
+    if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current && recognition) {
+      try { recognition.start(); } catch(e) {}
+    }
+  };
+
   useEffect(() => {
     if (!recognition) return;
 
-    // Chrome handles silence naturally when continuous is false.
     recognition.continuous = false; 
     recognition.interimResults = true; 
     recognition.lang = 'en-US';
@@ -56,19 +62,19 @@ export default function VoiceAssistant({ token, user }) {
       let currentText = '';
       let isFinalSentence = false;
 
-      // Perfectly captures exactly what Chrome hears, no duplication
       for (let i = 0; i < event.results.length; i++) {
         currentText += event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          isFinalSentence = true; // Chrome detected you paused/stopped talking
+          isFinalSentence = true;
         }
       }
 
       setTranscript(currentText);
 
-      // ONLY send to API when Chrome guarantees you are completely done talking
+      // PERFECTED: Only fires API when sentence is completely finished natively
       if (isFinalSentence && currentText.trim()) {
-        updateProcessing(true); // Lock instantly
+        updateProcessing(true);
+        try { recognition.stop(); } catch(e) {} // Stop mic to prevent glitching while thinking
         processVoiceWithAI(currentText.trim());
       }
     };
@@ -83,10 +89,7 @@ export default function VoiceAssistant({ token, user }) {
 
     recognition.onend = () => {
       setIsListening(false);
-      // Auto-restarts mic only if the app isn't busy talking or fetching data
-      if (sessionActive.current && !isProcessingRef.current && !isSpeakingRef.current) {
-        try { recognition.start(); } catch(e) {}
-      }
+      ensureMicIsRunning(); // If mic naturally stops, instantly kick it back on if idle
     };
   }, [recognition]); 
 
@@ -114,9 +117,7 @@ export default function VoiceAssistant({ token, user }) {
     utterance.onstart = () => updateSpeaking(true);
     utterance.onend = () => {
       updateSpeaking(false);
-      if (sessionActive.current && recognition) {
-        try { recognition.start(); } catch(e) {}
-      }
+      ensureMicIsRunning();
     };
 
     window.speechSynthesis.speak(utterance);
@@ -159,13 +160,16 @@ export default function VoiceAssistant({ token, user }) {
         speakResponse(data.reply);
       } else {
         updateProcessing(false); 
+        ensureMicIsRunning(); // Failsafe unlock if API is empty
       }
     } catch (error) {
       console.error('Failed to fetch AI response:', error);
-      updateProcessing(false); // Unlocks the UI so it doesn't freeze
       if (sessionActive.current) {
         setAiResponse("Connection failed. Let's try that again.");
         speakResponse("Connection failed. Let's try that again.");
+      } else {
+        updateProcessing(false);
+        ensureMicIsRunning(); // Failsafe unlock if crashed
       }
     }
   };
@@ -173,6 +177,7 @@ export default function VoiceAssistant({ token, user }) {
   const speakResponse = (text) => {
     if (!window.speechSynthesis) {
       updateProcessing(false);
+      ensureMicIsRunning();
       return;
     }
 
@@ -193,18 +198,14 @@ export default function VoiceAssistant({ token, user }) {
       
       utterance.onend = () => {
         updateSpeaking(false);
-        setTranscript(''); // Clear the text ONLY after she finishes replying
-        if (sessionActive.current && recognition) {
-          try { recognition.start(); } catch(e) {}
-        }
+        setTranscript(''); 
+        ensureMicIsRunning(); // Automatically re-opens the mic for your next sentence!
       };
       
       utterance.onerror = () => {
         updateProcessing(false);
         updateSpeaking(false);
-        if (sessionActive.current && recognition) {
-          try { recognition.start(); } catch(e) {}
-        }
+        ensureMicIsRunning();
       };
 
       window.speechSynthesis.speak(utterance);
