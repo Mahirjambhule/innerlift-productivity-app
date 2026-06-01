@@ -1,7 +1,7 @@
 # InnerLift 🚀
 
 <div align="center">
-  <img src="frontend/public/favicon.svg?v=1" alt="InnerLift Logo" width="180" />
+  <img src="frontend/public/logo.png" alt="InnerLift Logo" width="180" />
 </div>
 
 > **The Zen Lotus:** The InnerLift logo represents the core philosophy of the ecosystem—relentless execution rooted in mental clarity. The Zen circle (Ensō) embodies discipline, completeness, and the unbroken cycle of daily progress, while the lotus within signifies rising above the noise, maintaining calm focus, and continuous personal growth.
