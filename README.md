@@ -1,4 +1,4 @@
-# InnerLift ⭕
+# InnerLift
 
 <div align="center">
   <img src="frontend/public/logo.png" alt="InnerLift Logo" width="180" />
