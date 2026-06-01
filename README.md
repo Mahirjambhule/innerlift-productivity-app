@@ -1,10 +1,10 @@
 # InnerLift 🚀
 
 <div align="center">
-  <img src="frontend/public/favicon.svg" alt="InnerLift Logo" width="200" />
+  <img src="frontend/public/favicon.svg?v=1" alt="InnerLift Logo" width="180" />
 </div>
 
-> **The Symbol of Ascent:** The InnerLift logo represents the core philosophy of the ecosystem—relentless upward momentum and mental clarity. Its sharp, minimalist geometry embodies disciplined execution, while the upward trajectory reflects the continuous elevation of your focus, habits, and mindset.
+> **The Zen Lotus:** The InnerLift logo represents the core philosophy of the ecosystem—relentless execution rooted in mental clarity. The Zen circle (Ensō) embodies discipline, completeness, and the unbroken cycle of daily progress, while the lotus within signifies rising above the noise, maintaining calm focus, and continuous personal growth.
 
 > **Nurture the Mind, Master the Day.**
 > An elite, AI-powered productivity and mindset ecosystem designed for high performers.
