@@ -89,7 +89,6 @@ export default function VoiceAssistant({ token, user }) {
     window.speechSynthesis.speak(utterance);
   };
 
-  // 3. FETCH AI RESPONSE
   const processVoiceWithAI = async (text) => {
     setStatus('processing');
     try {
@@ -138,7 +137,6 @@ export default function VoiceAssistant({ token, user }) {
     window.speechSynthesis.cancel();
   };
 
-  // UI DISPLAY LOGIC
   let statusText = "Click the mic to start a session.";
   if (status === 'greeting' || status === 'speaking') statusText = "InnerLift is speaking...";
   else if (status === 'listening') statusText = "Listening to you... (Speak now)";
